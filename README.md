@@ -44,6 +44,40 @@ Si necesita implementarlo en otra plataforma, me dice y lo hago
 
 ---
 
+## Requisitos previos
+
+Para usar el script `maketest` necesitas tener instalado:
+
+### 1. VitaSDK (para compilar en PSVita)
+
+- Instala dependencias básicas:
+  ```sh
+  sudo apt update && sudo apt install git cmake build-essential python3
+  ```
+- Descarga e instala VitaSDK:
+  ```sh
+  git clone https://github.com/vitasdk/vdpm.git
+  cd vdpm
+  ./bootstrap-vitasdk.sh
+  export VITASDK="$HOME/vitasdk"
+  export PATH="$VITASDK/bin:$PATH"
+  # Puedes añadir las dos líneas anteriores a tu ~/.bashrc para que se carguen siempre
+  ```
+- Instala los paquetes necesarios de VitaSDK:
+  ```sh
+  vdpm install zlib libpng freetype
+  ```
+
+### 2. MinGW y dependencias para Windows
+
+- Instala MinGW y herramientas necesarias:
+  ```sh
+  sudo apt install mingw-w64 cmake make gcc-mingw-w64 g++-mingw-w64
+  ```
+- No se requieren librerías externas adicionales, el toolchain-mingw.cmake está listo para compilar el sniffer modular para Windows.
+
+---
+
 ## Integración como Librería (PSVita)
 
 1. Incluye `udp_sniffer_vita.h` en tu proyecto.
