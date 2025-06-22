@@ -45,6 +45,16 @@ void udp_sniffer_vita_set_callback(moonlight_found_cb cb);
  */
 void udp_sniffer_vita_poll(void);
 
+/**
+ * Cierra el sniffer UDP y libera recursos. Debe llamarse antes de reiniciar una búsqueda.
+ */
+void udp_sniffer_vita_deinit(void);
+
+/**
+ * Reinicia el estado interno del sniffer (opcional, para simetría con deinit).
+ */
+void udp_sniffer_vita_init(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -234,12 +234,28 @@ void udp_sniffer_vita_poll(void) {
                 snprintf(ip, sizeof(ip), "%u.%u.%u.%u", pkt[pos], pkt[pos+1], pkt[pos+2], pkt[pos+3]);
                 update_sunshine_ip_by_target(rrname, ip);
             }
-            int pos_before = pos;
             pos = rr_start + l + 10 + rdlength;
         }
         merge_ip_entries();
         check_and_print_ready_entries_vita();
     }
+}
+
+void udp_sniffer_vita_deinit(void) {
+    if (sock >= 0) {
+        sceNetSocketClose(sock);
+        sock = -1;
+    }
+    initialized = 0;
+    moonlight_count = 0;
+    memset(sunshine_table, 0, sizeof(sunshine_table));
+}
+
+void udp_sniffer_vita_init(void) {
+    // No hace nada, inicialización perezosa en poll
+    initialized = 0;
+    moonlight_count = 0;
+    memset(sunshine_table, 0, sizeof(sunshine_table));
 }
 #else
 void udp_sniffer_vita_poll(void) {}
