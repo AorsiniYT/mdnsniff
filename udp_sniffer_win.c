@@ -43,6 +43,9 @@ int udp_sniffer_win_init(void) {
     if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) return -1;
     sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock == INVALID_SOCKET) return -2;
+    // Hacer el socket no bloqueante
+    u_long nonblocking = 1;
+    ioctlsocket(sock, FIONBIO, &nonblocking);
     int opt = 1;
     setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
     struct sockaddr_in addr;
