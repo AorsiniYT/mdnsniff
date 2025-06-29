@@ -9,7 +9,7 @@ set -e
 VITASDK=${VITASDK:-/usr/local/vitasdk}
 APP_NAME="test_vita_mdns"
 VPK_NAME="${APP_NAME}.vpk"
-VITA_IP="192.168.0.200"  # Cambia esto por la IP de tu PS Vita
+VITA_IP="192.168.0.192"  # Cambia esto por la IP de tu PS Vita
 VITA_PORT=1337
 VITA_CONTROL_PORT=1338
 
