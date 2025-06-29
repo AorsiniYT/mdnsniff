@@ -9,12 +9,14 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <iphlpapi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include "udp_sniffer_win.h"
 #pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "iphlpapi.lib")
 
 #define MAX_SUNSHINE 16
 #define HOSTNAME_LEN 256
@@ -29,7 +31,10 @@ struct sunshine_entry {
 };
 
 static struct sunshine_entry sunshine_table[MAX_SUNSHINE];
-static SOCKET sock = INVALID_SOCKET;
+// Soporte multi-socket: uno por interfaz real
+#define MAX_MDNS_SOCKETS 8
+static SOCKET mdns_sockets[MAX_MDNS_SOCKETS];
+static int mdns_socket_count = 0;
 static int initialized = 0;
 static int moonlight_count = 0;
 static moonlight_found_cb_win g_found_cb = NULL;
@@ -41,25 +46,71 @@ void udp_sniffer_win_set_callback(moonlight_found_cb_win cb) {
 int udp_sniffer_win_init(void) {
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) return -1;
-    sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (sock == INVALID_SOCKET) return -2;
-    // Hacer el socket no bloqueante
-    u_long nonblocking = 1;
-    ioctlsocket(sock, FIONBIO, &nonblocking);
-    int opt = 1;
-    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
-    struct sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    addr.sin_port = htons(5353);
-    if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        closesocket(sock); sock = INVALID_SOCKET; return -3;
+    memset(mdns_sockets, 0, sizeof(mdns_sockets));
+    mdns_socket_count = 0;
+    printf("[mDNS] Enumerando interfaces de red...\n");
+    ULONG bufLen = 15000;
+    IP_ADAPTER_ADDRESSES *pAddresses = (IP_ADAPTER_ADDRESSES *)malloc(bufLen);
+    DWORD dwRetVal = GetAdaptersAddresses(AF_INET, GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER, NULL, pAddresses, &bufLen);
+    if (dwRetVal == ERROR_BUFFER_OVERFLOW) {
+        free(pAddresses);
+        pAddresses = (IP_ADAPTER_ADDRESSES *)malloc(bufLen);
+        dwRetVal = GetAdaptersAddresses(AF_INET, GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER, NULL, pAddresses, &bufLen);
     }
-    struct ip_mreq mreq;
-    mreq.imr_multiaddr.s_addr = inet_addr("224.0.0.251");
-    mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-    setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq));
-    // Enviar consulta mDNS para forzar respuesta de Sunshine
+    int iface_count = 0, joined_count = 0;
+    if (dwRetVal == NO_ERROR) {
+        IP_ADAPTER_ADDRESSES *pCurr = pAddresses;
+        while (pCurr && mdns_socket_count < MAX_MDNS_SOCKETS) {
+            int is_up = (pCurr->OperStatus == IfOperStatusUp);
+            int is_loopback = (pCurr->IfType == IF_TYPE_SOFTWARE_LOOPBACK);
+            char descA[256] = {0};
+            if (pCurr->Description) {
+                WideCharToMultiByte(CP_UTF8, 0, pCurr->Description, -1, descA, sizeof(descA)-1, NULL, NULL);
+            }
+            int is_virtual = (pCurr->IfType == IF_TYPE_TUNNEL || pCurr->IfType == IF_TYPE_IEEE1394 || pCurr->IfType == IF_TYPE_OTHER || strstr(descA, "Virtual") || strstr(descA, "VMware") || strstr(descA, "Loopback") || strstr(descA, "Bluetooth") || strstr(descA, "Pseudo") || strstr(descA, "WSL") || strstr(descA, "VPN"));
+            if (is_up && !is_loopback && !is_virtual) {
+                IP_ADAPTER_UNICAST_ADDRESS *u = pCurr->FirstUnicastAddress;
+                for (; u && mdns_socket_count < MAX_MDNS_SOCKETS; u = u->Next) {
+                    struct sockaddr_in* if_addr = (struct sockaddr_in*)u->Address.lpSockaddr;
+                    char ipstr[INET_ADDRSTRLEN];
+                    inet_ntop(AF_INET, &if_addr->sin_addr, ipstr, sizeof(ipstr));
+                    printf("[mDNS] Interfaz %d: %s | Tipo: %u | IP: %s\n", iface_count, descA, pCurr->IfType, ipstr);
+                    SOCKET s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+                    if (s == INVALID_SOCKET) continue;
+                    u_long nonblocking = 1;
+                    ioctlsocket(s, FIONBIO, &nonblocking);
+                    int opt = 1;
+                    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
+                    struct sockaddr_in bind_addr;
+                    memset(&bind_addr, 0, sizeof(bind_addr));
+                    bind_addr.sin_family = AF_INET;
+                    bind_addr.sin_addr = if_addr->sin_addr;
+                    bind_addr.sin_port = htons(5353);
+                    if (bind(s, (struct sockaddr*)&bind_addr, sizeof(bind_addr)) < 0) {
+                        closesocket(s); continue;
+                    }
+                    struct ip_mreq mreq;
+                    mreq.imr_multiaddr.s_addr = inet_addr("224.0.0.251");
+                    mreq.imr_interface.s_addr = if_addr->sin_addr.s_addr;
+                    if (setsockopt(s, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq)) == 0) {
+                        printf("[mDNS] -> Unido a multicast en %s\n", ipstr);
+                        mdns_sockets[mdns_socket_count++] = s;
+                        joined_count++;
+                    } else {
+                        printf("[mDNS] -> ERROR al unir multicast en %s\n", ipstr);
+                        closesocket(s);
+                    }
+                }
+            }
+            iface_count++;
+            pCurr = pCurr->Next;
+        }
+    } else {
+        printf("[mDNS] ERROR: No se pudieron enumerar interfaces (codigo %ld)\n", dwRetVal);
+    }
+    if (pAddresses) free(pAddresses);
+    printf("[mDNS] Total interfaces detectadas: %d, sockets multicast: %d\n", iface_count, mdns_socket_count);
+    // Enviar consulta mDNS para forzar respuesta de Sunshine en cada socket
     unsigned char query[] = {
         0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,
         9,'_','n','v','s','t','r','e','a','m',
@@ -67,12 +118,14 @@ int udp_sniffer_win_init(void) {
         5,'l','o','c','a','l',0x00,
         0x00,0x0C,0x00,0x01
     };
-    struct sockaddr_in mcast_addr;
-    memset(&mcast_addr, 0, sizeof(mcast_addr));
-    mcast_addr.sin_family = AF_INET;
-    mcast_addr.sin_addr.s_addr = inet_addr("224.0.0.251");
-    mcast_addr.sin_port = htons(5353);
-    sendto(sock, (const char*)query, sizeof(query), 0, (struct sockaddr*)&mcast_addr, sizeof(mcast_addr));
+    for (int i = 0; i < mdns_socket_count; ++i) {
+        struct sockaddr_in mcast_addr;
+        memset(&mcast_addr, 0, sizeof(mcast_addr));
+        mcast_addr.sin_family = AF_INET;
+        mcast_addr.sin_addr.s_addr = inet_addr("224.0.0.251");
+        mcast_addr.sin_port = htons(5353);
+        sendto(mdns_sockets[i], (const char*)query, sizeof(query), 0, (struct sockaddr*)&mcast_addr, sizeof(mcast_addr));
+    }
     memset(sunshine_table, 0, sizeof(sunshine_table));
     initialized = 1;
     moonlight_count = 0;
@@ -178,73 +231,78 @@ static void check_and_print_ready_entries_win() {
 }
 
 void udp_sniffer_win_poll(void) {
-    if (!initialized || sock == INVALID_SOCKET) return;
+    if (!initialized || mdns_socket_count == 0) return;
     char buffer[2048];
-    struct sockaddr_in from;
-    int fromlen = sizeof(from);
-    int n = recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr*)&from, &fromlen);
-    if (n <= 0) return;
-    const unsigned char* pkt = (const unsigned char*)buffer;
-    int msglen = n;
-    int qdcount = 0, ancount = 0;
-    if (msglen > 12) {
-        qdcount = (pkt[4]<<8) | pkt[5];
-        ancount = (pkt[6]<<8) | pkt[7];
-        int nscount = (pkt[8]<<8) | pkt[9];
-        int arcount = (pkt[10]<<8) | pkt[11];
-        int pos = 12;
-        for (int q = 0; q < qdcount && pos < msglen; ++q) {
-            char qname[256];
-            int l = decode_dns_name(pkt, msglen, pos, qname, sizeof(qname));
-            pos += l + 4;
-        }
-        int total_rr = ancount + nscount + arcount;
-        for (int i = 0; i < total_rr && pos < msglen; ++i) {
-            int rr_start = pos;
-            char rrname[256];
-            int l = decode_dns_name(pkt, msglen, pos, rrname, sizeof(rrname));
-            pos += l;
-            if (pos+10 > msglen) break;
-            int type = (pkt[pos]<<8) | pkt[pos+1];
-            int rdlength = (pkt[pos+8]<<8) | pkt[pos+9];
-            pos += 10;
-            if (type == 12) { // PTR
-                char ptrname[256];
-                decode_dns_name(pkt, msglen, pos, ptrname, sizeof(ptrname));
-                if (strstr(ptrname, "_nvstream._tcp.local") != NULL) {
-                    update_sunshine(ptrname, 0, NULL, NULL);
-                }
+    for (int i = 0; i < mdns_socket_count; ++i) {
+        struct sockaddr_in from;
+        int fromlen = sizeof(from);
+        int n = recvfrom(mdns_sockets[i], buffer, sizeof(buffer), 0, (struct sockaddr*)&from, &fromlen);
+        if (n <= 0) continue;
+        const unsigned char* pkt = (const unsigned char*)buffer;
+        int msglen = n;
+        int qdcount = 0, ancount = 0;
+        if (msglen > 12) {
+            qdcount = (pkt[4]<<8) | pkt[5];
+            ancount = (pkt[6]<<8) | pkt[7];
+            int nscount = (pkt[8]<<8) | pkt[9];
+            int arcount = (pkt[10]<<8) | pkt[11];
+            int pos = 12;
+            for (int q = 0; q < qdcount && pos < msglen; ++q) {
+                char qname[256];
+                int l = decode_dns_name(pkt, msglen, pos, qname, sizeof(qname));
+                pos += l + 4;
             }
-            if (type == 33 && rdlength >= 6) { // SRV
-                int srv_port = (pkt[pos+4]<<8) | pkt[pos+5];
-                char target[256] = {0};
-                decode_dns_name(pkt, msglen, pos+6, target, sizeof(target));
-                size_t len = strlen(rrname);
-                const char* suffix = "._nvstream._tcp.local";
-                size_t suffixlen = strlen(suffix);
-                if (len > suffixlen && strcmp(rrname + len - suffixlen, suffix) == 0) {
-                    if (target[0]) {
-                        update_sunshine(rrname, srv_port, NULL, target);
+            int total_rr = ancount + nscount + arcount;
+            for (int j = 0; j < total_rr && pos < msglen; ++j) {
+                int rr_start = pos;
+                char rrname[256];
+                int l = decode_dns_name(pkt, msglen, pos, rrname, sizeof(rrname));
+                pos += l;
+                if (pos+10 > msglen) break;
+                int type = (pkt[pos]<<8) | pkt[pos+1];
+                int rdlength = (pkt[pos+8]<<8) | pkt[pos+9];
+                pos += 10;
+                if (type == 12) { // PTR
+                    char ptrname[256];
+                    decode_dns_name(pkt, msglen, pos, ptrname, sizeof(ptrname));
+                    if (strstr(ptrname, "_nvstream._tcp.local") != NULL) {
+                        update_sunshine(ptrname, 0, NULL, NULL);
                     }
                 }
+                if (type == 33 && rdlength >= 6) { // SRV
+                    int srv_port = (pkt[pos+4]<<8) | pkt[pos+5];
+                    char target[256] = {0};
+                    decode_dns_name(pkt, msglen, pos+6, target, sizeof(target));
+                    size_t len = strlen(rrname);
+                    const char* suffix = "._nvstream._tcp.local";
+                    size_t suffixlen = strlen(suffix);
+                    if (len > suffixlen && strcmp(rrname + len - suffixlen, suffix) == 0) {
+                        if (target[0]) {
+                            update_sunshine(rrname, srv_port, NULL, target);
+                        }
+                    }
+                }
+                if (type == 1 && rdlength == 4) { // A
+                    char ip[INET_ADDRSTRLEN];
+                    snprintf(ip, sizeof(ip), "%u.%u.%u.%u", pkt[pos], pkt[pos+1], pkt[pos+2], pkt[pos+3]);
+                    update_sunshine_ip_by_target(rrname, ip);
+                }
+                pos = rr_start + l + 10 + rdlength;
             }
-            if (type == 1 && rdlength == 4) { // A
-                char ip[INET_ADDRSTRLEN];
-                snprintf(ip, sizeof(ip), "%u.%u.%u.%u", pkt[pos], pkt[pos+1], pkt[pos+2], pkt[pos+3]);
-                update_sunshine_ip_by_target(rrname, ip);
-            }
-            pos = rr_start + l + 10 + rdlength;
+            merge_ip_entries();
+            check_and_print_ready_entries_win();
         }
-        merge_ip_entries();
-        check_and_print_ready_entries_win();
     }
 }
 
 void udp_sniffer_win_deinit(void) {
-    if (sock != INVALID_SOCKET) {
-        closesocket(sock);
-        sock = INVALID_SOCKET;
+    for (int i = 0; i < mdns_socket_count; ++i) {
+        if (mdns_sockets[i] != INVALID_SOCKET) {
+            closesocket(mdns_sockets[i]);
+            mdns_sockets[i] = INVALID_SOCKET;
+        }
     }
+    mdns_socket_count = 0;
     WSACleanup();
     initialized = 0;
 }
