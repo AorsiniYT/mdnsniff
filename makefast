@@ -2,7 +2,7 @@
 set -e
 
 if [ -z "$1" ]; then
-    echo "Uso: ./makefast [win|psv|wiiu]"
+    echo "Usage: ./makefast [win|psv|wiiu]"
     exit 1
 fi
 
@@ -10,41 +10,41 @@ MODE="$1"
 
 if [ "$MODE" == "win" ]; then
     BUILD_DIR="build_win"
-    echo "[+] Compilando para Windows en $BUILD_DIR ..."
+    echo "[+] Building for Windows in $BUILD_DIR ..."
     mkdir -p "$BUILD_DIR"
     cd "$BUILD_DIR"
     cmake -DCMAKE_TOOLCHAIN_FILE=../toolchain-mingw.cmake ..
     make -j$(nproc)
-    echo -e "\n[+] Compilación Windows finalizada."
+    echo -e "\n[+] Windows build finished."
 elif [ "$MODE" == "psv" ]; then
     if [ -z "$VITASDK" ]; then
         VITASDK=/usr/local/vitasdk
     fi
     BUILD_DIR="build_psv"
-    echo "[+] Compilando para PS Vita en $BUILD_DIR ..."
+    echo "[+] Building for PS Vita in $BUILD_DIR ..."
     mkdir -p "$BUILD_DIR"
     cd "$BUILD_DIR"
     cmake -DCMAKE_TOOLCHAIN_FILE="$VITASDK/share/vita.toolchain.cmake" ..
     make -j$(nproc)
-    echo -e "\n[+] Compilación PS Vita finalizada."
+    echo -e "\n[+] PS Vita build finished."
 elif [ "$MODE" == "wiiu" ]; then
     if [ -z "$WUT_ROOT" ]; then
         if [ -n "$DEVKITPRO" ]; then
             WUT_ROOT="$DEVKITPRO/wut"
         else
-            echo "[!] Variable WUT_ROOT o DEVKITPRO no definida."
+            echo "[!] WUT_ROOT or DEVKITPRO variable not defined."
             exit 1
         fi
     fi
     BUILD_DIR="build_wiiu"
-    echo "[+] Compilando para Wii U en $BUILD_DIR ..."
+    echo "[+] Building for Wii U in $BUILD_DIR ..."
     mkdir -p "$BUILD_DIR"
     cd "$BUILD_DIR"
     cmake -DCMAKE_TOOLCHAIN_FILE="$WUT_ROOT/share/wut.toolchain.cmake" ..
     make -j$(nproc)
-    echo -e "\n[+] Compilación Wii U finalizada."
+    echo -e "\n[+] Wii U build finished."
 else
-    echo "[!] Modo desconocido: $MODE"
-    echo "Uso: ./makefast [win|psv|wiiu]"
+    echo "[!] Unknown mode: $MODE"
+    echo "Usage: ./makefast [win|psv|wiiu]"
     exit 1
 fi

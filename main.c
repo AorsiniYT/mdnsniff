@@ -1,7 +1,7 @@
 /*
- * Ejemplo de integración del sniffer UDP mDNS para PSVita/Windows
+ * mDNS UDP sniffer integration example for PSVita/Windows/Wii U
  *
- * Autor: AorsiniYT
+ * Author: AorsiniYT
  * Copyright 2025
  */
 
@@ -22,36 +22,36 @@
 #define NET_PARAM_MEM_SIZE (256 * 1024)
 
 void moonlight_found_callback(int idx, const char* host, const char* pcname, const char* ip, int port) {
-    psvDebugScreenPrintf("[Moonlight #%d] Host: %s | Nombre PC: %s | IP: %s | Puerto: %d\n",
+    psvDebugScreenPrintf("[Moonlight #%d] Host: %s | PC Name: %s | IP: %s | Port: %d\n",
         idx, host, pcname, ip, port);
-    MDNS_LOG("[Moonlight #%d] Host: %s | Nombre PC: %s | IP: %s | Puerto: %d\n",
+    MDNS_LOG("[Moonlight #%d] Host: %s | PC Name: %s | IP: %s | Port: %d\n",
         idx, host, pcname, ip, port);
 }
 
 int main(int argc, char *argv[]) {
     psvDebugScreenInit();
-    MDNS_LOG("[USB] Test de red y sniffer UDP mDNS iniciado.\n");
-    psvDebugScreenPrintf("Iniciando test de red y sniffer UDP mDNS en Vita...\n");
-    psvDebugScreenPrintf("\nIMPORTANTE: Para que aparezcan servidores, debe estar activo GeForce Experience o Sunshine en la red local.\n\n");
-    MDNS_LOG("IMPORTANTE: Para que aparezcan servidores, debe estar activo GeForce Experience o Sunshine en la red local.\n");
+    MDNS_LOG("[USB] Network test and UDP mDNS sniffer started.\n");
+    psvDebugScreenPrintf("Starting network test and UDP mDNS sniffer on Vita...\n");
+    psvDebugScreenPrintf("\nIMPORTANT: GeForce Experience or Sunshine must be running on your local network to discover hosts.\n\n");
+    MDNS_LOG("IMPORTANT: GeForce Experience or Sunshine must be running on your local network to discover hosts.\n");
 
     int ret;
     void *net_mem = NULL;
 
-    psvDebugScreenPrintf("Cargando modulo de red (SCE_SYSMODULE_NET)...\n");
+    psvDebugScreenPrintf("Loading network module (SCE_SYSMODULE_NET)...\n");
     ret = sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
     if (ret < 0) {
-        psvDebugScreenPrintf("ERROR: sceSysmoduleLoadModule fallo: 0x%08X\n", ret);
-        MDNS_LOG("ERROR: sceSysmoduleLoadModule fallo: 0x%08X\n", ret);
+        psvDebugScreenPrintf("ERROR: sceSysmoduleLoadModule failed: 0x%08X\n", ret);
+        MDNS_LOG("ERROR: sceSysmoduleLoadModule failed: 0x%08X\n", ret);
         goto end;
     }
 
-    psvDebugScreenPrintf("Inicializando red (sceNetInit)...\n");
+    psvDebugScreenPrintf("Initializing network (sceNetInit)...\n");
     SceNetInitParam netInitParam;
     net_mem = malloc(NET_PARAM_MEM_SIZE);
     if (!net_mem) {
-        psvDebugScreenPrintf("ERROR: malloc para net_mem fallo\n");
-        MDNS_LOG("ERROR: malloc para net_mem fallo\n");
+        psvDebugScreenPrintf("ERROR: malloc for net_mem failed\n");
+        MDNS_LOG("ERROR: malloc for net_mem failed\n");
         goto end;
     }
     netInitParam.memory = net_mem;
@@ -59,48 +59,48 @@ int main(int argc, char *argv[]) {
     netInitParam.flags = 0;
     ret = sceNetInit(&netInitParam);
     if (ret < 0) {
-        psvDebugScreenPrintf("ERROR: sceNetInit fallo: 0x%08X\n", ret);
-        MDNS_LOG("ERROR: sceNetInit fallo: 0x%08X\n", ret);
+        psvDebugScreenPrintf("ERROR: sceNetInit failed: 0x%08X\n", ret);
+        MDNS_LOG("ERROR: sceNetInit failed: 0x%08X\n", ret);
         goto end;
     }
 
-    psvDebugScreenPrintf("Inicializando control de red (sceNetCtlInit)...\n");
+    psvDebugScreenPrintf("Initializing network control (sceNetCtlInit)...\n");
     ret = sceNetCtlInit();
     if (ret < 0) {
-        psvDebugScreenPrintf("ERROR: sceNetCtlInit fallo: 0x%08X\n", ret);
-        MDNS_LOG("ERROR: sceNetCtlInit fallo: 0x%08X\n", ret);
+        psvDebugScreenPrintf("ERROR: sceNetCtlInit failed: 0x%08X\n", ret);
+        MDNS_LOG("ERROR: sceNetCtlInit failed: 0x%08X\n", ret);
         goto end;
     }
 
-    // Obtener información de la red
+    // Get network information
     SceNetCtlInfo info;
     ret = sceNetCtlInetGetInfo(SCE_NETCTL_INFO_GET_IP_ADDRESS, &info);
     if (ret < 0) {
-        psvDebugScreenPrintf("ERROR: sceNetCtlInetGetInfo fallo: 0x%08X\n", ret);
-        MDNS_LOG("ERROR: sceNetCtlInetGetInfo fallo: 0x%08X\n", ret);
+        psvDebugScreenPrintf("ERROR: sceNetCtlInetGetInfo failed: 0x%08X\n", ret);
+        MDNS_LOG("ERROR: sceNetCtlInetGetInfo failed: 0x%08X\n", ret);
         goto end;
     }
 
     psvDebugScreenPrintf("IP: %s\n", info.ip_address);
     MDNS_LOG("IP: %s\n", info.ip_address);
 
-    psvDebugScreenPrintf("\nSniffer UDP mDNS activo. Observa la consola para logs de servicios Moonlight/Sunshine.\n");
-    MDNS_LOG("Sniffer UDP mDNS activo. Observa la consola para logs de servicios Moonlight/Sunshine.\n");
-    psvDebugScreenPrintf("\nPresiona CIRCULO (O) para salir de la aplicacion.\n");
-    MDNS_LOG("Presiona CIRCULO (O) para salir de la aplicacion.\n");
+    psvDebugScreenPrintf("\nmDNS UDP Sniffer active. Watch the console for Moonlight/Sunshine service logs.\n");
+    MDNS_LOG("mDNS UDP Sniffer active. Watch the console for Moonlight/Sunshine service logs.\n");
+    psvDebugScreenPrintf("\nPress CIRCLE (O) to exit the application.\n");
+    MDNS_LOG("Press CIRCLE (O) to exit the application.\n");
 
-    // Bucle principal: solo sniffer UDP
+    // Main loop: only UDP sniffer
     udp_sniffer_vita_set_callback(moonlight_found_callback);
     SceCtrlData ctrl;
     while (1) {
-        udp_sniffer_vita_poll(); // Procesa un paquete mDNS si hay
+        udp_sniffer_vita_poll(); // Process mDNS packet if available
         
         sceCtrlPeekBufferPositive(0, &ctrl, 1);
         if (ctrl.buttons & SCE_CTRL_CIRCLE) {
             break;
         }
         
-        sceKernelDelayThread(1000 * 10); // 10ms para no saturar CPU
+        sceKernelDelayThread(1000 * 10); // 10ms to not saturate CPU
     }
 
 end:
@@ -126,7 +126,7 @@ end:
 #define MDNS_LOG WHBLogPrintf
 
 void moonlight_found_callback(int idx, const char* host, const char* pcname, const char* ip, int port) {
-    MDNS_LOG("[Moonlight #%d] Host: %s | Nombre PC: %s | IP: %s | Puerto: %d",
+    MDNS_LOG("[Moonlight #%d] Host: %s | PC Name: %s | IP: %s | Port: %d",
         idx, host, pcname, ip, port);
 }
 
@@ -134,12 +134,12 @@ int main(int argc, char *argv[]) {
     WHBProcInit();
     WHBLogConsoleInit();
 
-    MDNS_LOG("Iniciando test de red y sniffer UDP mDNS en Wii U...");
+    MDNS_LOG("Starting network test and mDNS UDP sniffer on Wii U...");
     MDNS_LOG("");
-    MDNS_LOG("IMPORTANTE: Para que aparezcan servidores, debe estar");
-    MDNS_LOG("activo GeForce Experience o Sunshine en la red local.");
+    MDNS_LOG("IMPORTANT: GeForce Experience or Sunshine must be running");
+    MDNS_LOG("on your local network to discover hosts.");
     MDNS_LOG("");
-    MDNS_LOG("Presiona el boton B en el GamePad para salir.");
+    MDNS_LOG("Press the B button on the GamePad to exit.");
     MDNS_LOG("");
 
     udp_sniffer_wiiu_init();
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
         if (vpad_error == VPAD_READ_SUCCESS) {
             if (!quitting && (vpad_status.trigger & VPAD_BUTTON_B)) {
                 MDNS_LOG("");
-                MDNS_LOG("Saliendo de la aplicacion...");
+                MDNS_LOG("Exiting application...");
                 WHBLogConsoleDraw();
                 quitting = 1;
                 SYSLaunchMenu();
@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
     WHBProcShutdown();
     return 0;
 }
-#else // Windows/otros
+#else // Windows/others
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -184,12 +184,12 @@ int main(int argc, char *argv[]) {
 #include "mdns.h"
 #define MDNS_LOG printf
 
-// Stubs para funciones Vita
+// Stubs for Vita functions
 #define psvDebugScreenInit() ((void)0)
 #define psvDebugScreenPrintf printf
 #define sceKernelDelayThread(ms) Sleep((ms)/1000)
 
-// Estructura para almacenar la información del servidor encontrado
+// Structure to store information about the discovered server
 typedef struct {
     char instance[256];
     char host[256];
@@ -226,7 +226,7 @@ static ServerInfo* find_server_by_host(const char* host) {
 }
 static void clear_servers() { memset(servers, 0, sizeof(servers)); }
 
-// Declaraciones de funciones necesarias de mdns.c
+// Declarations for required functions from mdns.c
 int mdns_socket_open_ipv4(const struct sockaddr_in* saddr);
 void mdns_socket_close(int sock);
 int mdns_discovery_send(int sock);
@@ -235,7 +235,7 @@ mdns_string_t mdns_record_parse_ptr(const void* buffer, size_t size, size_t offs
 mdns_record_srv_t mdns_record_parse_srv(const void* buffer, size_t size, size_t offset, size_t length, char* strbuffer, size_t capacity);
 struct sockaddr_in* mdns_record_parse_a(const void* buffer, size_t size, size_t offset, size_t length, struct sockaddr_in* addr);
 
-// Callback para procesar TODAS las respuestas mDNS
+// Callback to process ALL mDNS responses
 int mdns_callback(int sock, const struct sockaddr* from, size_t addrlen,
                   mdns_entry_type_t entry, uint16_t query_id,
                   uint16_t rtype, uint16_t rclass, uint32_t ttl,
@@ -250,9 +250,9 @@ int mdns_callback(int sock, const struct sockaddr* from, size_t addrlen,
     mdns_string_t from_addr_str = { from_addr_buffer, strlen(from_addr_buffer) };
     const char* entry_type = (entry == MDNS_ENTRYTYPE_ANSWER) ? "ANSWER" : (entry == MDNS_ENTRYTYPE_AUTHORITY) ? "AUTHORITY" : "ADDITIONAL";
     printf("[mDNS] [%s] from %s | rtype: %u\n", entry_type, from_addr_str.str, rtype);
-    // Imprimir nombre del registro
-    printf("  Nombre: %.*s\n", (int)name_length, (const char*)MDNS_POINTER_OFFSET(data, name_offset));
-    // Imprimir datos según tipo
+    // Print record name
+    printf("  Name: %.*s\n", (int)name_length, (const char*)MDNS_POINTER_OFFSET(data, name_offset));
+    // Print data according to type
     if (rtype == MDNS_RECORDTYPE_PTR) {
         char name_buffer[256];
         mdns_string_t name_str = mdns_record_parse_ptr(data, size, record_offset, record_length, name_buffer, sizeof(name_buffer));
@@ -277,7 +277,7 @@ int mdns_callback(int sock, const struct sockaddr* from, size_t addrlen,
         }
         printf("\n");
     }
-    // Otros tipos también se imprimen
+    // Other types are also printed
     return 0;
 }
 
@@ -287,12 +287,12 @@ int main(int argc, char *argv[]) {
         printf("WSAStartup failed\n");
         return 1;
     }
-    printf("[WIN] Test de red y mDNS iniciado.\n");
-    printf("Iniciando test de red y mDNS en Windows...\n");
-    printf("IMPORTANTE: Para que aparezcan servidores, debe estar activo GeForce Experience o Sunshine en la red local.\n\n");
+    printf("[WIN] Network test and mDNS started.\n");
+    printf("Starting network test and mDNS sniffer on Windows...\n");
+    printf("IMPORTANT: GeForce Experience or Sunshine must be running on your local network to discover hosts.\n\n");
 
-    // Mostrar IPs locales antes de iniciar mDNS
-    printf("IPs locales detectadas en este equipo:\n");
+    // Show local IPs before starting mDNS
+    printf("Local IPs detected on this machine:\n");
     char hostname[256];
     if (gethostname(hostname, sizeof(hostname)) == 0) {
         struct addrinfo hints = {0}, *res, *p;
@@ -307,25 +307,25 @@ int main(int argc, char *argv[]) {
             }
             freeaddrinfo(res);
         } else {
-            printf("  (No se pudo obtener la IP local)\n");
+            printf("  (Could not get local IP)\n");
         }
     } else {
-        printf("  (No se pudo obtener el hostname local)\n");
+        printf("  (Could not get local hostname)\n");
     }
     printf("---------------------------------\n");
 
     clear_servers();
 #ifdef _WIN32
-    // --- Apertura de socket mDNS en Windows con configuración multicast correcta ---
+    // --- mDNS socket opening on Windows with correct multicast configuration ---
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
-        printf("ERROR: No se pudo crear el socket mDNS\n");
+        printf("ERROR: Could not create mDNS socket\n");
         WSACleanup();
         return 1;
     }
     int reuse = 1;
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse, sizeof(reuse)) < 0) {
-        printf("[WARN] No se pudo activar SO_REUSEADDR\n");
+        printf("[WARN] Could not activate SO_REUSEADDR\n");
     }
     struct sockaddr_in addr_bind;
     memset(&addr_bind, 0, sizeof(addr_bind));
@@ -333,7 +333,7 @@ int main(int argc, char *argv[]) {
     addr_bind.sin_addr.s_addr = htonl(INADDR_ANY);
     addr_bind.sin_port = htons(5353);
     if (bind(sock, (struct sockaddr*)&addr_bind, sizeof(addr_bind)) < 0) {
-        printf("ERROR: No se pudo hacer bind a INADDR_ANY:5353\n");
+        printf("ERROR: Could not bind to INADDR_ANY:5353\n");
         closesocket(sock);
         WSACleanup();
         return 1;
@@ -342,22 +342,22 @@ int main(int argc, char *argv[]) {
     mreq.imr_multiaddr.s_addr = inet_addr("224.0.0.251");
     mreq.imr_interface.s_addr = htonl(INADDR_ANY);
     if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq)) < 0) {
-        printf("[WARN] No se pudo unir al grupo multicast mDNS (224.0.0.251)\n");
+        printf("[WARN] Could not join multicast group mDNS (224.0.0.251)\n");
     } else {
         printf("[OK] Unido al grupo multicast mDNS (224.0.0.251)\n");
     }
 #else
     int sock = mdns_socket_open_ipv4(NULL);
     if (sock < 0) {
-        printf("ERROR: No se pudo abrir el socket mDNS: %d\n", sock);
+        printf("ERROR: Could not open mDNS socket: %d\n", sock);
         WSACleanup();
         return 1;
     }
 #endif
 
-    printf("Enviando consulta mDNS para: _services._dns-sd._udp.local.\n");
+    printf("Sending mDNS query for: _services._dns-sd._udp.local.\n");
     // mdns_discovery_send_service(sock, "_nvstream._tcp.local.");
-    printf("Esperando respuestas mDNS (10 segundos)...\n");
+    printf("Waiting for mDNS responses (10 seconds)...\n");
     char recv_buffer[2048];
     for (int i = 0; i < 200; ++i) {
         int processed;
@@ -366,12 +366,12 @@ int main(int argc, char *argv[]) {
         } while (processed > 0);
         Sleep(50);
     }
-    printf("\n--- Descubrimiento Finalizado ---\n");
+    printf("\n--- Discovery Finished ---\n");
     int found = 0;
     for (int i = 0; i < 8; ++i) {
         if (servers[i].has_ptr && servers[i].has_srv && servers[i].has_a) {
-            printf("Servidor Encontrado:\n");
-            printf("  Instancia: %s\n", servers[i].instance);
+            printf("Server Found:\n");
+            printf("  Instance: %s\n", servers[i].instance);
             printf("  Host:      %s\n", servers[i].host);
             printf("  IP:        %s\n", servers[i].ip_v4);
             printf("  Port:      %d\n", servers[i].port);
@@ -379,15 +379,15 @@ int main(int argc, char *argv[]) {
         }
     }
     if (!found) {
-        printf("No se encontraron servidores GameStream.\n");
+        printf("No GameStream servers found.\n");
     }
     printf("---------------------------------\n\n");
     found = 0;
     for (int i = 0; i < 8; ++i) {
         if (servers[i].has_a) {
-            printf("Host con IP detectado:\n");
+            printf("Host with IP detected:\n");
             if (servers[i].instance[0])
-                printf("  Instancia: %s\n", servers[i].instance);
+                printf("  Instance: %s\n", servers[i].instance);
             if (servers[i].host[0])
                 printf("  Host:      %s\n", servers[i].host);
             printf("  IP:        %s\n", servers[i].ip_v4);
@@ -397,12 +397,12 @@ int main(int argc, char *argv[]) {
         }
     }
     if (!found) {
-        printf("No se encontraron hosts con IP por mDNS.\n");
+        printf("No hosts with IP found via mDNS.\n");
     }
     printf("---------------------------------\n\n");
     mdns_socket_close(sock);
-    printf("Socket mDNS cerrado.\n");
-    printf("Test finalizado.\n");
+    printf("mDNS socket closed.\n");
+    printf("Test finished.\n");
     WSACleanup();
 #ifdef _WIN32
     system("pause");

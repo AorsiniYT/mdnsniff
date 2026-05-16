@@ -1,8 +1,8 @@
 /*
- * Sniffer UDP mDNS modular para Windows
- * Detección de servicios Moonlight/Sunshine (GameStream) en red local.
+ * Modular mDNS UDP Sniffer for Windows
+ * Detection of Moonlight/Sunshine (GameStream) services on the local network.
  *
- * Autor: AorsiniYT
+ * Author: AorsiniYT
  * Copyright 2025
  */
 
@@ -20,7 +20,7 @@
 
 #define MAX_SUNSHINE 16
 #define HOSTNAME_LEN 256
-#define CACHE_TIMEOUT 10 // segundos
+#define CACHE_TIMEOUT 10 // seconds
 
 struct sunshine_entry {
     char host[HOSTNAME_LEN];
@@ -31,7 +31,7 @@ struct sunshine_entry {
 };
 
 static struct sunshine_entry sunshine_table[MAX_SUNSHINE];
-// Soporte multi-socket: uno por interfaz real
+// Multi-socket support: one per real interface
 #define MAX_MDNS_SOCKETS 8
 static SOCKET mdns_sockets[MAX_MDNS_SOCKETS];
 static int mdns_socket_count = 0;
@@ -48,7 +48,7 @@ int udp_sniffer_win_init(void) {
     if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) return -1;
     memset(mdns_sockets, 0, sizeof(mdns_sockets));
     mdns_socket_count = 0;
-    printf("[mDNS] Enumerando interfaces de red...\n");
+    printf("[mDNS] Enumerating network interfaces...\n");
     ULONG bufLen = 15000;
     IP_ADAPTER_ADDRESSES *pAddresses = (IP_ADAPTER_ADDRESSES *)malloc(bufLen);
     DWORD dwRetVal = GetAdaptersAddresses(AF_INET, GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER, NULL, pAddresses, &bufLen);
@@ -74,7 +74,7 @@ int udp_sniffer_win_init(void) {
                     struct sockaddr_in* if_addr = (struct sockaddr_in*)u->Address.lpSockaddr;
                     char ipstr[INET_ADDRSTRLEN];
                     inet_ntop(AF_INET, &if_addr->sin_addr, ipstr, sizeof(ipstr));
-                    printf("[mDNS] Interfaz %d: %s | Tipo: %u | IP: %s\n", iface_count, descA, pCurr->IfType, ipstr);
+                    printf("[mDNS] Interface %d: %s | Type: %u | IP: %s\n", iface_count, descA, pCurr->IfType, ipstr);
                     SOCKET s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
                     if (s == INVALID_SOCKET) continue;
                     u_long nonblocking = 1;
@@ -93,11 +93,11 @@ int udp_sniffer_win_init(void) {
                     mreq.imr_multiaddr.s_addr = inet_addr("224.0.0.251");
                     mreq.imr_interface.s_addr = if_addr->sin_addr.s_addr;
                     if (setsockopt(s, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq)) == 0) {
-                        printf("[mDNS] -> Unido a multicast en %s\n", ipstr);
+                        printf("[mDNS] -> Joined multicast on %s\n", ipstr);
                         mdns_sockets[mdns_socket_count++] = s;
                         joined_count++;
                     } else {
-                        printf("[mDNS] -> ERROR al unir multicast en %s\n", ipstr);
+                        printf("[mDNS] -> ERROR joining multicast on %s\n", ipstr);
                         closesocket(s);
                     }
                 }
@@ -106,11 +106,11 @@ int udp_sniffer_win_init(void) {
             pCurr = pCurr->Next;
         }
     } else {
-        printf("[mDNS] ERROR: No se pudieron enumerar interfaces (codigo %ld)\n", dwRetVal);
+        printf("[mDNS] ERROR: Could not enumerate interfaces (code %ld)\n", dwRetVal);
     }
     if (pAddresses) free(pAddresses);
-    printf("[mDNS] Total interfaces detectadas: %d, sockets multicast: %d\n", iface_count, mdns_socket_count);
-    // Enviar consulta mDNS para forzar respuesta de Sunshine en cada socket
+    printf("[mDNS] Total interfaces detected: %d, multicast sockets: %d\n", iface_count, mdns_socket_count);
+    // Send mDNS query to force Sunshine response on each socket
     unsigned char query[] = {
         0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,
         9,'_','n','v','s','t','r','e','a','m',
@@ -307,18 +307,18 @@ void udp_sniffer_win_deinit(void) {
     initialized = 0;
 }
 
-// Ejemplo de uso
+// Usage example
 #ifdef UDP_SNIFFER_WIN_MAIN
 void moonlight_found_callback_win(int idx, const char* host, const char* pcname, const char* ip, int port) {
-    printf("[Moonlight #%d] Host: %s | Nombre PC: %s | IP: %s | Puerto: %d\n", idx, host, pcname, ip, port);
+    printf("[Moonlight #%d] Host: %s | PC Name: %s | IP: %s | Port: %d\n", idx, host, pcname, ip, port);
 }
 
 int main() {
-    printf("Consulta mDNS enviada para _nvstream._tcp.local.\n");
-    printf("Escuchando solo servicios Moonlight/Sunshine (_nvstream._tcp.local)...\n");
+    printf("mDNS query sent for _nvstream._tcp.local.\n");
+    printf("Listening only for Moonlight/Sunshine (_nvstream._tcp.local)...\n");
     udp_sniffer_win_set_callback(moonlight_found_callback_win);
     if (udp_sniffer_win_init() < 0) {
-        printf("Error inicializando el sniffer mDNS.\n");
+        printf("Error initializing mDNS sniffer.\n");
         return 1;
     }
     while (1) {

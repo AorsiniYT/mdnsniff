@@ -195,11 +195,11 @@ static void check_and_print_ready_entries_wiiu() {
     for (int i = 0; i < MAX_SUNSHINE; ++i) {
         if (sunshine_table[i].host[0] && sunshine_table[i].target[0] && sunshine_table[i].ip[0] && sunshine_table[i].port > 0) {
             moonlight_count++;
-            MDNS_LOG("[mdns_log] Host encontrado: %s [%s:%d]\n", sunshine_table[i].target, sunshine_table[i].ip, sunshine_table[i].port);
+            MDNS_LOG("[mdns_log] Host found: %s [%s:%d]\n", sunshine_table[i].target, sunshine_table[i].ip, sunshine_table[i].port);
             if (g_found_cb) {
                 g_found_cb(moonlight_count, sunshine_table[i].host, sunshine_table[i].target, sunshine_table[i].ip, sunshine_table[i].port);
             }
-            // Hacemos el puerto negativo para indicar que ya fue notificado y no repetir
+            // Make the port negative to indicate it was already notified and prevent duplicates
             sunshine_table[i].port = -sunshine_table[i].port;
         }
     }
@@ -246,7 +246,7 @@ void udp_sniffer_wiiu_poll(void) {
         int sendto_res = sendto(sock, query, sizeof(query), 0, (struct sockaddr*)&mcast_addr, sizeof(mcast_addr));
         memset(sunshine_table, 0, sizeof(sunshine_table));
         initialized = 1;
-        MDNS_LOG("[WIIU] Sniffer UDP mDNS inicializado.\n");
+        MDNS_LOG("[WIIU] mDNS UDP Sniffer initialized.\n");
     }
     if (sock < 0) {
         return;

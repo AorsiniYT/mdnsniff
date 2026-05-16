@@ -1,15 +1,15 @@
 /**
  * @file udp_sniffer_vita.h
- * @brief Sniffer UDP mDNS para PSVita (VitaSDK) - API de integración
+ * @brief mDNS UDP sniffer for PSVita (VitaSDK) - API de integración
  *
- * Este archivo define la API para integrar el sniffer mDNS de Moonlight/Sunshine en aplicaciones PSVita.
- * El sniffer detecta servicios GameStream (Moonlight/Sunshine) en la red local y notifica detecciones mediante callback.
+ * This file defines the API to integrate the Moonlight/Sunshine mDNS sniffer in PSVita applications.
+ * The sniffer detects GameStream services (Moonlight/Sunshine) on the local network and notifies detections via callback.
  *
  * Uso típico:
- *   1. Llama a udp_sniffer_vita_set_callback() con tu función para recibir detecciones.
+ *   1. Call udp_sniffer_vita_set_callback() with your function to receive detections.
  *   2. Llama periódicamente a udp_sniffer_vita_poll() en tu bucle principal.
  *
- * La función de callback se invoca solo cuando se detecta un host Moonlight/Sunshine completo (host, nombre PC, IP y puerto).
+ * The callback function is invoked only when a complete Moonlight/Sunshine host is detected (host, PC name, IP and port).
  *
  * @author AorsiniYT
  * @copyright 2025
@@ -23,35 +23,35 @@ extern "C" {
 #endif
 
 /**
- * Tipo de callback para detección de host Moonlight/Sunshine.
- * @param idx   Número de detección (1, 2, ...)
- * @param host  Nombre de host mDNS (ej: "DESKTOP-XXXXXX._nvstream._tcp.local")
- * @param pcname Nombre de la máquina/PC (target SRV, ej: "DESKTOP-XXXXXX.local")
- * @param ip    Dirección IP detectada (ej: "192.168.1.100")
- * @param port  Puerto TCP del servicio GameStream
+ * Callback type for Moonlight/Sunshine host detection.
+ * @param idx   Detection number (1, 2, ...)
+ * @param host  mDNS host name (e.g. "DESKTOP-XXXXXX._nvstream._tcp.local")
+ * @param pcname Machine/PC name (target SRV, e.g. "DESKTOP-XXXXXX.local")
+ * @param ip    Detected IP address (e.g. "192.168.1.100")
+ * @param port TCP port of the GameStream service
  */
 typedef void (*moonlight_found_cb)(int idx, const char* host, const char* pcname, const char* ip, int port);
 
 /**
- * Registra la función callback que será llamada al detectar un host Moonlight/Sunshine.
- * Solo se invoca cuando todos los datos (host, pcname, ip, puerto) están presentes.
- * @param cb Función de callback definida por el usuario.
+ * Registers the callback function to be called when a Moonlight/Sunshine host is detected.
+ * It is only invoked when all data (host, pcname, ip, port) is present.
+ * @param cb User-defined callback function.
  */
 void udp_sniffer_vita_set_callback(moonlight_found_cb cb);
 
 /**
- * Procesa un paquete mDNS si hay disponible (no bloqueante).
- * Llamar periódicamente desde el bucle principal.
+ * Processes an mDNS packet if available (non-blocking).
+ * Call periodically from the main loop.
  */
 void udp_sniffer_vita_poll(void);
 
 /**
- * Cierra el sniffer UDP y libera recursos. Debe llamarse antes de reiniciar una búsqueda.
+ * Closes the UDP sniffer and frees resources. Must be called before restarting a search.
  */
 void udp_sniffer_vita_deinit(void);
 
 /**
- * Reinicia el estado interno del sniffer (opcional, para simetría con deinit).
+ * Resets the internal state of the sniffer (optional, for symmetry with deinit).
  */
 void udp_sniffer_vita_init(void);
 

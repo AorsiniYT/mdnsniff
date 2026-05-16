@@ -1,8 +1,8 @@
 /*
- * Sniffer UDP mDNS para PSVita (VitaSDK)
- * Detección de servicios Moonlight/Sunshine (GameStream) en red local.
+ * mDNS UDP Sniffer for PSVita (VitaSDK)
+ * Detection of Moonlight/Sunshine (GameStream) services on the local network.
  *
- * Autor: AorsiniYT
+ * Author: AorsiniYT
  * Copyright 2025
  */
 
@@ -23,9 +23,9 @@
 #define MCAST_PORT 5353
 #define MAX_SUNSHINE 16
 #define HOSTNAME_LEN 256
-#define CACHE_TIMEOUT 10 // segundos
+#define CACHE_TIMEOUT 10 // seconds
 
-// Decodifica un nombre DNS comprimido
+// Decodes a compressed DNS name
 static int decode_dns_name(const unsigned char* msg, int msglen, int offset, char* out, int outlen) {
     int len = 0, jumped = 0, pos = offset, outpos = 0;
     while (pos < msglen) {
@@ -107,7 +107,7 @@ void udp_sniffer_vita_set_callback(moonlight_found_cb cb) {
     g_found_cb = cb;
 }
 
-// Fusionar IPs huérfanas (opcional, igual que en win)
+// Merge orphan IPs (optional, same as in win)
 static void merge_ip_entries() {
     for (int i = 0; i < MAX_SUNSHINE; ++i) {
         if (sunshine_table[i].host[0] && sunshine_table[i].target[0]) {
@@ -130,10 +130,10 @@ static void check_and_print_ready_entries_vita() {
             moonlight_count++;
             MDNS_LOG("[mdns_log] check_and_print_ready_entries_vita: idx=%d host=%s target=%s ip=%s port=%d\n", moonlight_count, sunshine_table[i].host, sunshine_table[i].target, sunshine_table[i].ip, sunshine_table[i].port);
             if (g_found_cb) {
-                MDNS_LOG("[mdns_log] g_found_cb NO es NULL, llamando callback...\n");
+                MDNS_LOG("[mdns_log] g_found_cb IS NOT NULL, calling callback...\n");
                 g_found_cb(moonlight_count, sunshine_table[i].host, sunshine_table[i].target, sunshine_table[i].ip, sunshine_table[i].port);
             } else {
-                MDNS_LOG("[mdns_log] ¡ADVERTENCIA! g_found_cb es NULL al intentar notificar host\n");
+                MDNS_LOG("[mdns_log] WARNING! g_found_cb is NULL when trying to notify host\n");
             }
             sunshine_table[i].host[0] = '\0';
             sunshine_table[i].ip[0] = '\0';
@@ -145,9 +145,9 @@ static void check_and_print_ready_entries_vita() {
 
 void udp_sniffer_vita_poll(void) {
     if (!initialized) {
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: INICIO inicialización perezosa\n");
+        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: START lazy initialization\n");
         sock = sceNetSocket("mdns", SCE_NET_AF_INET, SCE_NET_SOCK_DGRAM, 0);
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: tras sceNetSocket, sock=%d\n", sock);
+        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetSocket, sock=%d\n", sock);
         if (sock < 0) { MDNS_LOG("[VITA] sceNetSocket() failed\n"); return; }
         SceNetSockaddrIn addr;
         memset(&addr, 0, sizeof(addr));
@@ -155,17 +155,17 @@ void udp_sniffer_vita_poll(void) {
         addr.sin_addr.s_addr = sceNetHtonl(SCE_NET_INADDR_ANY);
         addr.sin_port = sceNetHtons(MCAST_PORT);
         int bindres = sceNetBind(sock, (SceNetSockaddr*)&addr, sizeof(addr));
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: tras sceNetBind, res=%d\n", bindres);
+        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetBind, res=%d\n", bindres);
         if (bindres < 0) { MDNS_LOG("[VITA] sceNetBind() failed\n"); sceNetSocketClose(sock); sock = -1; return; }
         struct SceNetIpMreq mreq;
         // Reemplazo de sceNetInetAddr por sceNetInetPton
         int ptonres = sceNetInetPton(SCE_NET_AF_INET, MCAST_ADDR, &mreq.imr_multiaddr.s_addr);
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: tras sceNetInetPton, res=%d\n", ptonres);
+        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetInetPton, res=%d\n", ptonres);
         mreq.imr_interface.s_addr = sceNetHtonl(SCE_NET_INADDR_ANY);
         int sockoptres = sceNetSetsockopt(sock, SCE_NET_IPPROTO_IP, SCE_NET_IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: tras sceNetSetsockopt(IP_ADD_MEMBERSHIP), res=%d\n", sockoptres);
+        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetSetsockopt(IP_ADD_MEMBERSHIP), res=%d\n", sockoptres);
         if (sockoptres < 0) { MDNS_LOG("[VITA] sceNetSetsockopt(IP_ADD_MEMBERSHIP) failed\n"); sceNetSocketClose(sock); sock = -1; return; }
-        // Enviar consulta mDNS activa
+        // Send active mDNS query
         unsigned char query[] = {
             0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,
             9,'_','n','v','s','t','r','e','a','m',
@@ -177,25 +177,25 @@ void udp_sniffer_vita_poll(void) {
         memset(&mcast_addr, 0, sizeof(mcast_addr));
         mcast_addr.sin_family = SCE_NET_AF_INET;
         int ptonres2 = sceNetInetPton(SCE_NET_AF_INET, MCAST_ADDR, &mcast_addr.sin_addr.s_addr);
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: tras sceNetInetPton (mcast_addr), res=%d\n", ptonres2);
+        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetInetPton (mcast_addr), res=%d\n", ptonres2);
         mcast_addr.sin_port = sceNetHtons(MCAST_PORT);
         int sendto_res = sceNetSendto(sock, query, sizeof(query), 0, (SceNetSockaddr*)&mcast_addr, sizeof(mcast_addr));
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: tras sceNetSendto, res=%d\n", sendto_res);
+        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetSendto, res=%d\n", sendto_res);
         memset(sunshine_table, 0, sizeof(sunshine_table));
         initialized = 1;
-        MDNS_LOG("[VITA] Sniffer UDP mDNS inicializado.\n");
-        //psvDebugScreenPrintf("[VITA] Sniffer UDP mDNS inicializado.\n");
+        MDNS_LOG("[VITA] mDNS UDP Sniffer initialized.\n");
+        //psvDebugScreenPrintf("[VITA] mDNS UDP Sniffer initialized.\n");
     }
     if (sock < 0) return;
     char buffer[BUF_SIZE];
     SceNetSockaddrIn from;
     int fromlen = sizeof(from);
     int n = sceNetRecvfrom(sock, buffer, sizeof(buffer), SCE_NET_MSG_DONTWAIT, (SceNetSockaddr*)&from, &fromlen);
-    if (n <= 0) return; // No hay datos
+    if (n <= 0) return; // No data
     const unsigned char* pkt = (const unsigned char*)buffer;
     int msglen = n;
     int qdcount = 0, ancount = 0;
-    //MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: antes de parseo mDNS, msglen=%d\n", msglen);
+    //MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: before mDNS parsing, msglen=%d\n", msglen);
     if (msglen > 12) {
         qdcount = (pkt[4]<<8) | pkt[5];
         ancount = (pkt[6]<<8) | pkt[7];
@@ -260,7 +260,7 @@ void udp_sniffer_vita_deinit(void) {
 }
 
 void udp_sniffer_vita_init(void) {
-    // No hace nada, inicialización perezosa en poll
+    // Does nothing, lazy initialization in poll
     initialized = 0;
     moonlight_count = 0;
     memset(sunshine_table, 0, sizeof(sunshine_table));

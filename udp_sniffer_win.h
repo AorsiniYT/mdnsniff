@@ -1,8 +1,8 @@
 /*
- * Sniffer UDP mDNS modular para Windows
- * Detección de servicios Moonlight/Sunshine (GameStream) en red local.
+ * Modular mDNS UDP Sniffer for Windows
+ * Detection of Moonlight/Sunshine (GameStream) services on the local network.
  *
- * Autor: AorsiniYT
+ * Author: AorsiniYT
  * Copyright 2025
  */
 
@@ -13,35 +13,35 @@ extern "C" {
 #endif
 
 /**
- * Callback para detección de host Moonlight/Sunshine.
- * @param idx   Número de detección (1, 2, ...)
- * @param host  Nombre de host mDNS (ej: "DESKTOP-XXXXXX._nvstream._tcp.local")
- * @param pcname Nombre de la máquina/PC (target SRV, ej: "DESKTOP-XXXXXX.local")
- * @param ip    Dirección IP detectada (ej: "192.168.1.100")
- * @param port  Puerto TCP del servicio GameStream
+ * Callback for Moonlight/Sunshine host detection.
+ * @param idx   Detection number (1, 2, ...)
+ * @param host  mDNS host name (e.g. "DESKTOP-XXXXXX._nvstream._tcp.local")
+ * @param pcname Machine/PC name (target SRV, e.g. "DESKTOP-XXXXXX.local")
+ * @param ip    Detected IP address (e.g. "192.168.1.100")
+ * @param port TCP port of the GameStream service
  */
 typedef void (*moonlight_found_cb_win)(int idx, const char* host, const char* pcname, const char* ip, int port);
 
 /**
- * Registra la función callback que será llamada al detectar un host Moonlight/Sunshine.
+ * Registers the callback function to be called when a Moonlight/Sunshine host is detected.
  */
 void udp_sniffer_win_set_callback(moonlight_found_cb_win cb);
 
 /**
- * Inicializa el sniffer mDNS (abre socket, envía consulta, etc).
- * Llamar una vez antes de usar.
- * Devuelve 0 si ok, <0 si error.
+ * Initializes the mDNS sniffer (opens socket, sends query, etc).
+ * Call once before use.
+ * Returns 0 if ok, <0 if error.
  */
 int udp_sniffer_win_init(void);
 
 /**
- * Procesa un paquete mDNS si hay disponible (no bloqueante).
- * Llamar periódicamente desde el bucle principal.
+ * Processes an mDNS packet if available (non-blocking).
+ * Call periodically from the main loop.
  */
 void udp_sniffer_win_poll(void);
 
 /**
- * Libera recursos del sniffer (cierra socket, etc).
+ * Frees sniffer resources (closes socket, etc).
  */
 void udp_sniffer_win_deinit(void);
 

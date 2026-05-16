@@ -1,8 +1,8 @@
 /*
- * Sniffer UDP mDNS para Windows (referencia y pruebas)
- * Detección de servicios Moonlight/Sunshine (GameStream) en red local.
+ * mDNS UDP Sniffer for Windows (reference and tests)
+ * Detection of Moonlight/Sunshine (GameStream) services on the local network.
  *
- * Autor: AorsiniYT
+ * Author: AorsiniYT
  * Copyright 2025
  */
 
@@ -42,25 +42,25 @@ int main(int argc, char *argv[]) {
         error("socket() failed");
     }
 
-    // Configurar dirección del socket
+    // Configure socket address
     memset(&sa, 0, sizeof(sa));
     sa.sin_family = AF_INET;
     sa.sin_port = htons(MDNS_PORT);
     sa.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    // Asociar socket a la dirección
+    // Bind socket to address
     if (bind(sock, (struct sockaddr *)&sa, sizeof(sa)) == SOCKET_ERROR) {
         error("bind() failed");
     }
 
-    // Unirse al grupo de multidifusión mDNS
+    // Join mDNS multicast group
     mreq.imr_multiaddr.s_addr = inet_addr(MDNS_ADDR);
     mreq.imr_interface.s_addr = htonl(INADDR_ANY);
     if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&mreq, sizeof(mreq)) < 0) {
         error("setsockopt() failed");
     }
 
-    printf("Esperando paquetes mDNS en %s:%d...\n", MDNS_ADDR, MDNS_PORT);
+    printf("Waiting for mDNS packets on %s:%d...\n", MDNS_ADDR, MDNS_PORT);
 
     // Bucle principal
     while (1) {
@@ -71,10 +71,10 @@ int main(int argc, char *argv[]) {
 
         // Terminar cadena y mostrar datos recibidos
         buf[recvlen] = '\0';
-        printf("Recibido: %s\n", buf);
+        printf("Received: %s\n", buf);
     }
 
-    // Cerrar socket y limpiar Winsock (nunca se alcanza en este ejemplo)
+    // Close socket and cleanup Winsock (never reached in this example)
     closesocket(sock);
     WSACleanup();
 
