@@ -86,13 +86,20 @@ int main(int argc, char *argv[]) {
 
     psvDebugScreenPrintf("\nSniffer UDP mDNS activo. Observa la consola para logs de servicios Moonlight/Sunshine.\n");
     MDNS_LOG("Sniffer UDP mDNS activo. Observa la consola para logs de servicios Moonlight/Sunshine.\n");
-    psvDebugScreenPrintf("Test finalizado. Presiona el boton PS para salir.\n");
-    MDNS_LOG("Test finalizado. El usuario debe cerrar la app con el boton PS.\n");
+    psvDebugScreenPrintf("\nPresiona CIRCULO (O) para salir de la aplicacion.\n");
+    MDNS_LOG("Presiona CIRCULO (O) para salir de la aplicacion.\n");
 
     // Bucle principal: solo sniffer UDP
     udp_sniffer_vita_set_callback(moonlight_found_callback);
+    SceCtrlData ctrl;
     while (1) {
         udp_sniffer_vita_poll(); // Procesa un paquete mDNS si hay
+        
+        sceCtrlPeekBufferPositive(0, &ctrl, 1);
+        if (ctrl.buttons & SCE_CTRL_CIRCLE) {
+            break;
+        }
+        
         sceKernelDelayThread(1000 * 10); // 10ms para no saturar CPU
     }
 
@@ -101,6 +108,69 @@ end:
         free(net_mem);
     }
     sceSysmoduleUnloadModule(SCE_SYSMODULE_NET);
+    return 0;
+}
+#elif defined(__WIIU__)
+#include <coreinit/thread.h>
+#include <coreinit/time.h>
+#include <whb/proc.h>
+#include <whb/log.h>
+#include <whb/log_console.h>
+#include <whb/log_udp.h>
+#include <vpad/input.h>
+#include <sysapp/launch.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "udp_sniffer_wiiu.h"
+
+#define MDNS_LOG WHBLogPrintf
+
+void moonlight_found_callback(int idx, const char* host, const char* pcname, const char* ip, int port) {
+    MDNS_LOG("[Moonlight #%d] Host: %s | Nombre PC: %s | IP: %s | Puerto: %d",
+        idx, host, pcname, ip, port);
+}
+
+int main(int argc, char *argv[]) {
+    WHBProcInit();
+    WHBLogConsoleInit();
+
+    MDNS_LOG("Iniciando test de red y sniffer UDP mDNS en Wii U...");
+    MDNS_LOG("");
+    MDNS_LOG("IMPORTANTE: Para que aparezcan servidores, debe estar");
+    MDNS_LOG("activo GeForce Experience o Sunshine en la red local.");
+    MDNS_LOG("");
+    MDNS_LOG("Presiona el boton B en el GamePad para salir.");
+    MDNS_LOG("");
+
+    udp_sniffer_wiiu_init();
+    udp_sniffer_wiiu_set_callback(moonlight_found_callback);
+
+    VPADStatus vpad_status;
+    VPADReadError vpad_error;
+    int quitting = 0;
+
+    while (WHBProcIsRunning()) {
+        if (!quitting) {
+            udp_sniffer_wiiu_poll();
+        }
+
+        VPADRead(VPAD_CHAN_0, &vpad_status, 1, &vpad_error);
+        if (vpad_error == VPAD_READ_SUCCESS) {
+            if (!quitting && (vpad_status.trigger & VPAD_BUTTON_B)) {
+                MDNS_LOG("");
+                MDNS_LOG("Saliendo de la aplicacion...");
+                WHBLogConsoleDraw();
+                quitting = 1;
+                SYSLaunchMenu();
+            }
+        }
+
+        OSSleepTicks(OSMillisecondsToTicks(10));
+        WHBLogConsoleDraw();
+    }
+
+    WHBLogConsoleFree();
+    WHBProcShutdown();
     return 0;
 }
 #else // Windows/otros

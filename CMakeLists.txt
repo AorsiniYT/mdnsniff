@@ -23,8 +23,35 @@ if(MINGW OR WIN32)
     target_compile_definitions(${PROJECT_NAME}_win PRIVATE UDP_SNIFFER_WIN_MAIN)
 endif()
 
+# --- Configuración para Wii U (WUT) ---
+if(WIIU OR DEFINED ENV{WUT_ROOT})
+    message(STATUS "Configurando para Wii U (WUT)")
+    if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+        if(DEFINED ENV{WUT_ROOT})
+            set(CMAKE_TOOLCHAIN_FILE "$ENV{WUT_ROOT}/share/wut.toolchain.cmake" CACHE PATH "toolchain file")
+        elseif(DEFINED ENV{DEVKITPRO})
+            set(CMAKE_TOOLCHAIN_FILE "$ENV{DEVKITPRO}/wut/share/wut.toolchain.cmake" CACHE PATH "toolchain file")
+        endif()
+    endif()
+
+    set(SNIFFER_SRC udp_sniffer_wiiu.c)
+    add_executable(${PROJECT_NAME} main.c ${SNIFFER_SRC})
+    
+    target_include_directories(${PROJECT_NAME} PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/common"
+    )
+    
+    target_link_libraries(${PROJECT_NAME} wut)
+
+    wut_create_rpx(${PROJECT_NAME})
+
+    wut_create_wuhb(${PROJECT_NAME}
+        NAME "Test WiiU mDNS"
+        AUTHOR "AorsiniYT"
+    )
+
 # --- Configuración para PS Vita (VitaSDK) ---
-if(NOT WIN32 AND NOT MINGW)
+elseif(NOT WIN32 AND NOT MINGW)
     message(STATUS "Configurando para PS Vita (VitaSDK)")
     # Toolchain VitaSDK
     if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
