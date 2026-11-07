@@ -15,6 +15,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "udp_sniffer_vita.h"
+#include "mdns_dns.h"
 #define MDNS_LOG sceClibPrintf
 #include "common/debugScreen.h"
 
@@ -24,26 +25,6 @@
 #define MAX_SUNSHINE 16
 #define HOSTNAME_LEN 256
 #define CACHE_TIMEOUT 10 // seconds
-
-// Decodes a compressed DNS name
-static int decode_dns_name(const unsigned char* msg, int msglen, int offset, char* out, int outlen) {
-    int len = 0, jumped = 0, pos = offset, outpos = 0;
-    while (pos < msglen) {
-        unsigned char c = msg[pos];
-        if (c == 0) { if (!jumped) len++; break; }
-        if ((c & 0xC0) == 0xC0) {
-            int ptr = ((c & 0x3F) << 8) | msg[pos+1];
-            if (!jumped) len += 2;
-            pos = ptr; jumped = 1; continue;
-        }
-        pos++;
-        if (outpos && outpos < outlen-1) out[outpos++] = '.';
-        for (int i = 0; i < c && pos < msglen && outpos < outlen-1; ++i) out[outpos++] = msg[pos++];
-        if (!jumped) len += c + 1;
-    }
-    out[outpos] = '\0';
-    return jumped ? len : (pos - offset + 1);
-}
 
 struct sunshine_entry {
     char host[HOSTNAME_LEN];
@@ -202,36 +183,38 @@ void udp_sniffer_vita_poll(void) {
         int nscount = (pkt[8]<<8) | pkt[9];
         int arcount = (pkt[10]<<8) | pkt[11];
         int pos = 12;
-        for (int q = 0; q < qdcount && pos < msglen; ++q) {
+        for (int q = 0; q < qdcount; ++q) {
             char qname[256];
             int l = decode_dns_name(pkt, msglen, pos, qname, sizeof(qname));
+            if (l < 0 || l > msglen - pos - 4) {
+                pos = msglen;
+                break;
+            }
             pos += l + 4;
         }
         int total_rr = ancount + nscount + arcount;
         for (int i = 0; i < total_rr && pos < msglen; ++i) {
-            int rr_start = pos;
-            char rrname[256];
-            int l = decode_dns_name(pkt, msglen, pos, rrname, sizeof(rrname));
-            pos += l;
-            if (pos+10 > msglen) break;
-            int type = (pkt[pos]<<8) | pkt[pos+1];
-            int rdlength = (pkt[pos+8]<<8) | pkt[pos+9];
-            pos += 10;
+            struct mdns_record rr;
+            if (!mdns_next_record(pkt, msglen, pos, &rr)) break;
+            const char* rrname = rr.name;
+            int type = rr.type;
+            int rdlength = rr.rdlength;
+            pos = rr.rdata_offset;
             if (type == 12) { // PTR
                 char ptrname[256];
-                decode_dns_name(pkt, msglen, pos, ptrname, sizeof(ptrname));
-                if (strstr(ptrname, "_nvstream._tcp.local") != NULL) {
+                int ptr_used = decode_dns_name(pkt, msglen, pos, ptrname, sizeof(ptrname));
+                if (ptr_used >= 0 && ptr_used <= rdlength && strstr(ptrname, "_nvstream._tcp.local") != NULL) {
                     update_sunshine(ptrname, 0, NULL, NULL);
                 }
             }
             if (type == 33 && rdlength >= 6) { // SRV
                 int srv_port = (pkt[pos+4]<<8) | pkt[pos+5];
                 char target[256] = {0};
-                decode_dns_name(pkt, msglen, pos+6, target, sizeof(target));
+                int target_used = decode_dns_name(pkt, msglen, pos+6, target, sizeof(target));
                 size_t len = strlen(rrname);
                 const char* suffix = "._nvstream._tcp.local";
                 size_t suffixlen = strlen(suffix);
-                if (len > suffixlen && strcmp(rrname + len - suffixlen, suffix) == 0) {
+                if (target_used >= 0 && target_used <= rdlength - 6 && len > suffixlen && strcmp(rrname + len - suffixlen, suffix) == 0) {
                     if (target[0]) {
                         update_sunshine(rrname, srv_port, NULL, target);
                     }
@@ -242,7 +225,7 @@ void udp_sniffer_vita_poll(void) {
                 snprintf(ip, sizeof(ip), "%u.%u.%u.%u", pkt[pos], pkt[pos+1], pkt[pos+2], pkt[pos+3]);
                 update_sunshine_ip_by_target(rrname, ip);
             }
-            pos = rr_start + l + 10 + rdlength;
+            pos = rr.next_offset;
         }
         merge_ip_entries();
         check_and_print_ready_entries_vita();
